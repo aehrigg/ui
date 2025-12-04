@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Satellitensteuerung</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Satellitensteuerung</h1>
+      <span id="conn" class="badge">Idle</span>
+    </header>
+
+    <div id="error" class="error hidden"></div>
+
+    <section class="card">
+      <h2>Status</h2>
+      <p>Azimut: <strong id="az">–</strong></p>
+      <p>Elevation: <strong id="el">–</strong></p>
+      <p>Signal: <strong id="sig">–</strong></p>
+      <div class="bar"><div id="sigbar" class="bar-fill" style="width:0%"></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Betriebsmodus</h2>
+      <select id="mode">
+        <option value="geo">Automatik – geostationär</option>
+        <option value="polar">Automatik – polumlaufend</option>
+        <option value="manual">Manuell</option>
+      </select>
+    </section>
+
+    <section class="card">
+      <h2>Satellit</h2>
+      <select id="satellite"></select>
+      <p class="hint">Aktuelle ID: <strong id="sat-label">–</strong></p>
+    </section>
+
+    <section class="card">
+      <h2>Manuelle Steuerung</h2>
+      <div class="pad">
+        <button data-dir="up">↑</button>
+        <button data-dir="right">→</button>
+        <button data-dir="left">←</button>
+        <button data-dir="down">↓</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const modeEl = document.getElementById('mode');
+    const satEl = document.getElementById('satellite');
+    const satLabel = document.getElementById('sat-label');
+    const errEl = document.getElementById('error');
+    const connEl = document.getElementById('conn');
+    const azEl = document.getElementById('az');
+    const elEl = document.getElementById('el');
+    const sigEl = document.getElementById('sig');
+    const sigBar = document.getElementById('sigbar');
+    const padButtons = document.querySelectorAll('.pad button');
+
+    const satellites = [
+      { id: 25544, name: 'ISS (ZARYA)' },
+      { id: 40069, name: 'METEOR M2' },
+      { id: 33591, name: 'NOAA 19' }
+    ];
+
+    satellites.forEach((sat) => {
+      const opt = document.createElement('option');
+      opt.value = sat.id;
+      opt.textContent = `${sat.name} (ID ${sat.id})`;
+      satEl.appendChild(opt);
+    });
+
+    function showError(msg) {
+      errEl.textContent = msg;
+      errEl.classList.remove('hidden');
+    }
+    function clearError() {
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+    }
+
+    async function fetchStatus() {
+      try {
+        connEl.textContent = 'Lädt…';
+        connEl.className = 'badge warn';
+        const res = await fetch('/api/status');
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        azEl.textContent = data.position.azimuth?.toFixed(1) + '°';
+        elEl.textContent = data.position.elevation?.toFixed(1) + '°';
+        sigEl.textContent = (data.signal ?? '–') + '%';
+        sigBar.style.width = `${data.signal ?? 0}%`;
+        modeEl.value = data.mode;
+        satEl.value = data.satellite_id;
+        satLabel.textContent = data.satellite_id;
+        connEl.textContent = 'Verbunden';
+        connEl.className = 'badge ok';
+        clearError();
+      } catch (err) {
+        connEl.textContent = 'Fehler';
+        connEl.className = 'badge err';
+        showError(err.message || 'Status konnte nicht geladen werden');
+      }
+    }
+
+    modeEl.addEventListener('change', async (e) => {
+      try {
+        await fetch('/api/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: e.target.value })
+        });
+      } catch (err) {
+        showError(err.message || 'Modus-Update fehlgeschlagen');
+      }
+    });
+
+    satEl.addEventListener('change', async (e) => {
+      try {
+        const id = Number(e.target.value);
+        await fetch('/api/target', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ satellite_id: id })
+        });
+        satLabel.textContent = id;
+      } catch (err) {
+        showError(err.message || 'Satellit konnte nicht gesetzt werden');
+      }
+    });
+
+    padButtons.forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          const dir = btn.dataset.dir;
+          await fetch('/api/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: dir })
+          });
+        } catch (err) {
+          showError(err.message || 'Befehl konnte nicht gesendet werden');
+        }
+      });
+    });
+
+    fetchStatus();
+    setInterval(fetchStatus, 5000);
+  </script>
+</body>
+</html>
