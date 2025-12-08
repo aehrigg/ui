@@ -22,6 +22,8 @@ LAT = float(get_env("TRACK_LAT", "0"))
 LNG = float(get_env("TRACK_LNG", "0"))
 ALT = float(get_env("TRACK_ALT", "0"))
 DEFAULT_SAT_ID = int(get_env("TRACK_SAT_ID", "25544"))  # ISS as default
+ABOVE_CATEGORY_ID = int(get_env("ABOVE_CATEGORY_ID", "3"))  # weather sats
+ABOVE_RADIUS = float(get_env("ABOVE_RADIUS", "70"))  # degrees
 
 
 class ModeRequest(BaseModel):
@@ -88,6 +90,24 @@ def fetch_satellite_position(
         raise HTTPException(status_code=502, detail=f"N2YO fetch failed: {exc}")
 
 
+def fetch_satellites_above(
+    category_id: int, lat: float, lng: float, alt: float, radius: float
+) -> dict:
+    url = (
+        f"https://api.n2yo.com/rest/v1/satellite/above/"
+        f"{lat}/{lng}/{alt}/{radius}/{category_id}/&apiKey={N2YO_API_KEY}"
+    )
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return data
+    except requests.HTTPError as exc:
+        raise HTTPException(status_code=exc.response.status_code, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"N2YO above fetch failed: {exc}")
+
+
 @app.get("/api/status")
 def get_status():
     position = fetch_satellite_position(
@@ -127,3 +147,11 @@ def ping():
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/api/above")
+def get_above(radius: float = ABOVE_RADIUS):
+    data = fetch_satellites_above(
+        category_id=ABOVE_CATEGORY_ID, lat=LAT, lng=LNG, alt=ALT, radius=radius
+    )
+    return data

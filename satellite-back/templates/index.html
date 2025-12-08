@@ -40,10 +40,15 @@
     <section class="card">
       <h2>Manuelle Steuerung</h2>
       <div class="pad">
-        <button data-dir="up">↑</button>
-        <button data-dir="right">→</button>
-        <button data-dir="left">←</button>
-        <button data-dir="down">↓</button>
+        <div></div>
+        <button data-dir="up">&uarr;</button>
+        <div></div>
+        <button data-dir="left">&larr;</button>
+        <div></div>
+        <button data-dir="right">&rarr;</button>
+        <div></div>
+        <button data-dir="down">&darr;</button>
+        <div></div>
       </div>
     </section>
   </main>
@@ -59,19 +64,7 @@
     const sigEl = document.getElementById('sig');
     const sigBar = document.getElementById('sigbar');
     const padButtons = document.querySelectorAll('.pad button');
-
-    const satellites = [
-      { id: 25544, name: 'ISS (ZARYA)' },
-      { id: 40069, name: 'METEOR M2' },
-      { id: 33591, name: 'NOAA 19' }
-    ];
-
-    satellites.forEach((sat) => {
-      const opt = document.createElement('option');
-      opt.value = sat.id;
-      opt.textContent = `${sat.name} (ID ${sat.id})`;
-      satEl.appendChild(opt);
-    });
+    let satellites = [];
 
     function showError(msg) {
       errEl.textContent = msg;
@@ -99,6 +92,10 @@
         connEl.textContent = 'Verbunden';
         connEl.className = 'badge ok';
         clearError();
+        // Versuche, Dropdown an die aktuelle ID anzupassen, falls geladen
+        if (satEl.options.length > 0 && data.satellite_id) {
+          satEl.value = data.satellite_id;
+        }
       } catch (err) {
         connEl.textContent = 'Fehler';
         connEl.className = 'badge err';
@@ -147,6 +144,32 @@
       });
     });
 
+    async function loadSatellites() {
+      try {
+        const res = await fetch('/api/above');
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        satellites = data.above ?? [];
+        satEl.innerHTML = '';
+        satellites.forEach((sat) => {
+          const id = sat.satid || sat.id;
+          const name = sat.satname || sat.name || 'Sat';
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = `${name} (ID ${id})`;
+          satEl.appendChild(opt);
+        });
+        if (satellites.length === 0) {
+          const opt = document.createElement('option');
+          opt.textContent = 'Keine Satelliten gefunden';
+          satEl.appendChild(opt);
+        }
+      } catch (err) {
+        showError(err.message || 'Satelliten konnten nicht geladen werden');
+      }
+    }
+
+    loadSatellites();
     fetchStatus();
     setInterval(fetchStatus, 5000);
   </script>
