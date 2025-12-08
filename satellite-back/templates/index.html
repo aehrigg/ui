@@ -16,8 +16,18 @@
 
     <section class="card">
       <h2>Status</h2>
-      <p>Azimut: <strong id="az">–</strong></p>
-      <p>Elevation: <strong id="el">–</strong></p>
+      <div class="status-grid">
+        <div>
+          <h3>Ziel (Sat)</h3>
+          <p>Azimut: <strong id="sat-az">–</strong></p>
+          <p>Elevation: <strong id="sat-el">–</strong></p>
+        </div>
+        <div>
+          <h3>Antenne (Ist)</h3>
+          <p>Azimut: <strong id="ant-az">–</strong></p>
+          <p>Elevation: <strong id="ant-el">–</strong></p>
+        </div>
+      </div>
       <p>Signal: <strong id="sig">–</strong></p>
       <div class="bar"><div id="sigbar" class="bar-fill" style="width:0%"></div></div>
     </section>
@@ -59,8 +69,10 @@
     const satLabel = document.getElementById('sat-label');
     const errEl = document.getElementById('error');
     const connEl = document.getElementById('conn');
-    const azEl = document.getElementById('az');
-    const elEl = document.getElementById('el');
+    const satAzEl = document.getElementById('sat-az');
+    const satElEl = document.getElementById('sat-el');
+    const antAzEl = document.getElementById('ant-az');
+    const antElEl = document.getElementById('ant-el');
     const sigEl = document.getElementById('sig');
     const sigBar = document.getElementById('sigbar');
     const padButtons = document.querySelectorAll('.pad button');
@@ -82,8 +94,12 @@
         const res = await fetch('/api/status');
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        azEl.textContent = data.position.azimuth?.toFixed(1) + '°';
-        elEl.textContent = data.position.elevation?.toFixed(1) + '°';
+        satAzEl.textContent = data.position.azimuth?.toFixed(1) + '°';
+        satElEl.textContent = data.position.elevation?.toFixed(1) + '°';
+        const antAz = data.antenna?.azimuth;
+        const antEl = data.antenna?.elevation;
+        antAzEl.textContent = antAz !== undefined && antAz !== null ? `${antAz.toFixed(1)}°` : '–';
+        antElEl.textContent = antEl !== undefined && antEl !== null ? `${antEl.toFixed(1)}°` : '–';
         sigEl.textContent = (data.signal ?? '–') + '%';
         sigBar.style.width = `${data.signal ?? 0}%`;
         modeEl.value = data.mode;
