@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Literal, Optional
 
 import requests
@@ -24,6 +25,7 @@ ALT = float(get_env("TRACK_ALT", "0"))
 DEFAULT_SAT_ID = int(get_env("TRACK_SAT_ID", "25544"))  # ISS as default
 ABOVE_CATEGORY_ID = int(get_env("ABOVE_CATEGORY_ID", "3"))  # weather sats
 ABOVE_RADIUS = float(get_env("ABOVE_RADIUS", "70"))  # degrees
+VISIBILITY_WINDOW = int(get_env("VISIBILITY_WINDOW", "900"))  # seconds ahead to predict
 
 
 class ModeRequest(BaseModel):
@@ -108,9 +110,40 @@ def fetch_satellites_above(
         raise HTTPException(status_code=502, detail=f"N2YO above fetch failed: {exc}")
 
 
+def estimate_visibility_seconds(
+    satellite_id: int, lat: float, lng: float, alt: float, window: int = VISIBILITY_WINDOW
+) -> Optional[int]:
+    url = (
+        f"https://api.n2yo.com/rest/v1/satellite/positions/"
+        f"{satellite_id}/{lat}/{lng}/{alt}/{window}/&apiKey={N2YO_API_KEY}"
+    )
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        positions = data.get("positions") or []
+        if not positions:
+            return None
+        now = time.time()
+        # Finde den letzten Zeitpunkt innerhalb des Fensters, an dem Elevation > 0 ist
+        visible_times = [p.get("timestamp") for p in positions if p.get("elevation", -90) > 0]
+        if not visible_times:
+            return 0
+        last_visible = max(visible_times)
+        remaining = int(last_visible - now)
+        return remaining if remaining > 0 else 0
+    except requests.HTTPError:
+        return None
+    except Exception:
+        return None
+
+
 @app.get("/api/status")
 def get_status():
     position = fetch_satellite_position(
+        satellite_id=state["satellite_id"], lat=LAT, lng=LNG, alt=ALT
+    )
+    visibility = estimate_visibility_seconds(
         satellite_id=state["satellite_id"], lat=LAT, lng=LNG, alt=ALT
     )
     return {
@@ -118,6 +151,7 @@ def get_status():
         "satellite_id": state["satellite_id"],
         "position": position,
         "signal": state["signal"],
+        "visibility_seconds": visibility,
     }
 
 

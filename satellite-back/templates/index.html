@@ -28,6 +28,7 @@
           <p>Elevation: <strong id="ant-el">–</strong></p>
         </div>
       </div>
+      <p>Sichtbar noch: <strong id="visibility">–</strong></p>
       <p>Signal: <strong id="sig">–</strong></p>
       <div class="bar"><div id="sigbar" class="bar-fill" style="width:0%"></div></div>
     </section>
@@ -73,6 +74,7 @@
     const satElEl = document.getElementById('sat-el');
     const antAzEl = document.getElementById('ant-az');
     const antElEl = document.getElementById('ant-el');
+    const visibilityEl = document.getElementById('visibility');
     const sigEl = document.getElementById('sig');
     const sigBar = document.getElementById('sigbar');
     const padButtons = document.querySelectorAll('.pad button');
@@ -100,6 +102,13 @@
         const antEl = data.antenna?.elevation;
         antAzEl.textContent = antAz !== undefined && antAz !== null ? `${antAz.toFixed(1)}°` : '–';
         antElEl.textContent = antEl !== undefined && antEl !== null ? `${antEl.toFixed(1)}°` : '–';
+        const vis = data.visibility_seconds;
+        if (vis === null || vis === undefined) {
+          visibilityEl.textContent = '–';
+        } else {
+          const minutes = Math.max(0, Math.round(vis / 60));
+          visibilityEl.textContent = `${minutes} min`;
+        }
         sigEl.textContent = (data.signal ?? '–') + '%';
         sigBar.style.width = `${data.signal ?? 0}%`;
         modeEl.value = data.mode;
