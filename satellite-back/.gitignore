@@ -1,0 +1,17 @@
+# Git ignore for Python virtual environments and common artifacts
+
+# Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+/.env
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
