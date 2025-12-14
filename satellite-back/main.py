@@ -1,7 +1,8 @@
 import os
 import time
 from typing import Optional
-
+from dotenv import load_dotenv
+load_dotenv()
 import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
